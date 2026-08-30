@@ -15,24 +15,24 @@ settings unchanged.
 macOS or Linux:
 
 ```sh
-curl -fsSL https://git.aiatechco.com:31443/zji996/pi-kit/raw/branch/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/zji996/pi-kit/v1.0.1/install.sh | sh
 ```
 
 Windows PowerShell:
 
 ```powershell
-irm 'https://git.aiatechco.com:31443/zji996/pi-kit/raw/branch/main/install.ps1' | iex
+irm 'https://raw.githubusercontent.com/zji996/pi-kit/v1.0.1/install.ps1' | iex
 ```
 
 Requirements: internet access and Node.js `22.19.0` or newer. If Pi is not
 installed, the bootstrap installs `@earendil-works/pi-coding-agent@0.84.4`
 with npm first. Existing newer Pi versions are preserved.
 
-Piping a script into a shell executes the current public `main` branch. To
-review it first:
+The one-line commands use an immutable release tag. To review the Unix
+installer first:
 
 ```sh
-curl -fsSLO https://git.aiatechco.com:31443/zji996/pi-kit/raw/branch/main/install.sh
+curl -fsSLO https://raw.githubusercontent.com/zji996/pi-kit/v1.0.1/install.sh
 less install.sh
 sh install.sh
 ```
