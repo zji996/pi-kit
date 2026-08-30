@@ -29,7 +29,7 @@ node -e '
 pi_bin=''
 if command -v pi >/dev/null 2>&1; then
   pi_bin=$(command -v pi)
-  installed_version=$($pi_bin --version 2>/dev/null || printf '0.0.0')
+  installed_version=$("$pi_bin" --version 2>/dev/null || printf '0.0.0')
   if ! node -e '
     const current = process.argv[1].split(".").map(Number);
     const minimum = process.argv[2].split(".").map(Number);

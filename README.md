@@ -15,13 +15,13 @@ settings unchanged.
 macOS or Linux:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/zji996/pi-kit/v1.0.1/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/zji996/pi-kit/v1.0.2/install.sh | sh
 ```
 
 Windows PowerShell:
 
 ```powershell
-irm 'https://raw.githubusercontent.com/zji996/pi-kit/v1.0.1/install.ps1' | iex
+irm 'https://raw.githubusercontent.com/zji996/pi-kit/v1.0.2/install.ps1' | iex
 ```
 
 Requirements: internet access and Node.js `22.19.0` or newer. If Pi is not
@@ -32,7 +32,7 @@ The one-line commands use an immutable release tag. To review the Unix
 installer first:
 
 ```sh
-curl -fsSLO https://raw.githubusercontent.com/zji996/pi-kit/v1.0.1/install.sh
+curl -fsSLO https://raw.githubusercontent.com/zji996/pi-kit/v1.0.2/install.sh
 less install.sh
 sh install.sh
 ```
