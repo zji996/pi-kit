@@ -2,13 +2,20 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
-const sources = readFileSync(resolve(root, "packages.lock"), "utf8")
+const sources = readFileSync(resolve(root, "packages.list"), "utf8")
   .split(/\r?\n/)
   .map((line) => line.trim())
   .filter((line) => line && !line.startsWith("#"));
 
 if (sources.length === 0) {
-  throw new Error("packages.lock is empty");
+  throw new Error("packages.list is empty");
+}
+
+for (const source of sources) {
+  const withoutPrefix = source.replace(/^npm:/, "");
+  if (!source.startsWith("npm:") || withoutPrefix.lastIndexOf("@") > 0) {
+    throw new Error(`packages.list source must be unversioned npm: ${source}`);
+  }
 }
 
 for (const filename of ["install.sh", "install.ps1"]) {
@@ -20,4 +27,4 @@ for (const filename of ["install.sh", "install.ps1"]) {
   }
 }
 
-console.log(`pi-kit: checked ${sources.length} pinned packages`);
+console.log(`pi-kit: checked ${sources.length} latest-tracking packages`);

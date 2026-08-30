@@ -1,12 +1,12 @@
 #!/bin/sh
 set -eu
 
-PI_NPM_PACKAGE='@earendil-works/pi-coding-agent@0.84.4'
+PI_NPM_PACKAGE='@earendil-works/pi-coding-agent@latest'
 MINIMUM_PI_VERSION='0.84.4'
 PACKAGES='
-npm:pi-semantic-edit@0.4.0
-npm:pi-web-access@0.27.0
-npm:pi-subagents@0.60.0
+npm:pi-semantic-edit
+npm:pi-web-access
+npm:pi-subagents
 '
 
 info() {
@@ -38,12 +38,12 @@ if command -v pi >/dev/null 2>&1; then
       if ((current[i] || 0) < (minimum[i] || 0)) process.exit(1);
     }
   ' "$installed_version" "$MINIMUM_PI_VERSION"; then
-    info "upgrading Pi from $installed_version to $MINIMUM_PI_VERSION"
+    info "upgrading Pi from $installed_version to latest"
     npm install --global "$PI_NPM_PACKAGE"
     pi_bin=$(command -v pi 2>/dev/null || true)
   fi
 else
-  info "installing Pi $MINIMUM_PI_VERSION"
+  info 'installing latest Pi'
   npm install --global "$PI_NPM_PACKAGE"
   pi_bin=$(command -v pi 2>/dev/null || true)
 fi
@@ -56,7 +56,7 @@ if [ -z "$pi_bin" ]; then
 fi
 
 for package in $PACKAGES; do
-  info "installing $package"
+  info "adding or updating $package to latest"
   "$pi_bin" install "$package"
 done
 

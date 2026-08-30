@@ -5,8 +5,9 @@ packages.
 
 ## Constraints
 
-- Keep `packages.lock`, `install.sh`, and `install.ps1` in sync.
-- Pin Pi and package versions. Upgrades are explicit repository changes.
+- Keep `packages.list`, `install.sh`, and `install.ps1` in sync.
+- Keep listed Pi package sources unversioned so every run resolves npm latest.
+- Release tags pin installer behavior, not the versions of listed Pi packages.
 - Never add Pi credentials, provider keys, model configuration, sessions, or a
   copy of `~/.pi`.
 - Install packages through `pi install`; do not edit Pi settings directly.

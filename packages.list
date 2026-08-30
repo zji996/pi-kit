@@ -1,0 +1,4 @@
+# One unversioned Pi package source per line. Each install resolves npm latest.
+npm:pi-semantic-edit
+npm:pi-web-access
+npm:pi-subagents
