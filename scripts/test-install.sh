@@ -17,6 +17,7 @@ const { writeFileSync } = require("node:fs");
 const settings = {
   packages: [
     "npm:existing-plugin@1.2.3",
+    "npm:pi-subagents@0.60.0",
     {
       source: "npm:pi-semantic-edit@0.3.0",
       extensions: ["index.ts"],
@@ -67,6 +68,10 @@ for (const source of expected) {
 
 if (!settings.packages.includes("npm:existing-plugin@1.2.3")) {
   throw new Error("unrelated existing package was changed or removed");
+}
+
+if (!settings.packages.includes("npm:pi-subagents@0.60.0")) {
+  throw new Error("previously installed pi-subagents should not be removed implicitly");
 }
 
 const semantic = settings.packages.find(

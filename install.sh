@@ -6,7 +6,6 @@ MINIMUM_PI_VERSION='0.84.4'
 PACKAGES='
 npm:pi-semantic-edit
 npm:pi-web-access
-npm:pi-subagents
 '
 
 info() {

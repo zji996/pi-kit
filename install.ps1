@@ -4,8 +4,7 @@ $PiNpmPackage = "@earendil-works/pi-coding-agent@latest"
 $MinimumPiVersion = [version]"0.84.4"
 $Packages = @(
     "npm:pi-semantic-edit",
-    "npm:pi-web-access",
-    "npm:pi-subagents"
+    "npm:pi-web-access"
 )
 
 function Write-Info([string]$Message) {
