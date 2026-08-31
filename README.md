@@ -12,7 +12,7 @@ The managed Pi packages are:
 Forgejo, Linux or macOS:
 
 ```sh
-curl -fsSL https://git.aiatechco.com/zji996/pi-kit/raw/branch/main/install.sh | sh -s -- --sync
+curl -fsSL https://git.aiatechco.com:31443/zji996/pi-kit/raw/branch/main/install.sh | sh -s -- --sync
 ```
 
 GitHub fallback:
@@ -24,7 +24,7 @@ curl -fsSL https://raw.githubusercontent.com/zji996/pi-kit/main/install.sh | sh 
 Windows PowerShell (sync is the default):
 
 ```powershell
-irm 'https://git.aiatechco.com/zji996/pi-kit/raw/branch/main/install.ps1' | iex
+irm 'https://git.aiatechco.com:31443/zji996/pi-kit/raw/branch/main/install.ps1' | iex
 ```
 
 From a clone:
