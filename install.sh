@@ -133,11 +133,16 @@ done
 
 if [ "$MODE" = 'sync' ]; then
   if [ "${PI_KIT_SKIP_PLAYWRIGHT_INSTALL:-0}" != '1' ]; then
+    playwright_version=''
     if command -v playwright >/dev/null 2>&1; then
-      info "Playwright CLI available: $(playwright --version)"
-    else
-      info 'installing Playwright CLI (Chromium is installed on demand)'
+      playwright_version=$(playwright --version 2>/dev/null | awk '{print $2}')
+    fi
+    playwright_latest=$(npm view playwright version 2>/dev/null || true)
+    if [ -z "$playwright_version" ] || { [ -n "$playwright_latest" ] && [ "$playwright_version" != "$playwright_latest" ]; }; then
+      info 'installing or upgrading Playwright CLI (Chromium is installed on demand)'
       npm install --global "$PLAYWRIGHT_NPM_PACKAGE"
+    else
+      info "Playwright CLI $playwright_version is current"
     fi
   fi
 

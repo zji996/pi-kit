@@ -98,11 +98,14 @@ foreach ($Package in $Packages) {
 if ($Mode -eq "sync") {
     if ($env:PI_KIT_SKIP_PLAYWRIGHT_INSTALL -ne "1") {
         $Playwright = Get-Command playwright -ErrorAction SilentlyContinue
-        if ($Playwright) {
-            Write-Info "Playwright CLI available: $(& $Playwright.Source --version)"
-        } else {
-            Write-Info "installing Playwright CLI (Chromium is installed on demand)"
+        $PlaywrightVersion = if ($Playwright) { [version]((& $Playwright.Source --version).Trim().Split()[-1]) } else { $null }
+        $LatestPlaywrightText = (& npm view playwright version 2>$null)
+        $LatestPlaywrightVersion = if ($LASTEXITCODE -eq 0 -and $LatestPlaywrightText) { [version]$LatestPlaywrightText.Trim() } else { $null }
+        if (-not $PlaywrightVersion -or ($LatestPlaywrightVersion -and $PlaywrightVersion -ne $LatestPlaywrightVersion)) {
+            Write-Info "installing or upgrading Playwright CLI (Chromium is installed on demand)"
             Invoke-Checked "npm" @("install", "--global", "playwright@latest")
+        } else {
+            Write-Info "Playwright CLI $PlaywrightVersion is current"
         }
     }
 
