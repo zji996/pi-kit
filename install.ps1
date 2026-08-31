@@ -1,6 +1,7 @@
 param(
     [switch]$Sync,
-    [switch]$Additive
+    [switch]$Additive,
+    [switch]$Cn
 )
 
 $ErrorActionPreference = "Stop"
@@ -27,29 +28,82 @@ function Invoke-Checked([string]$Command, [string[]]$Arguments) {
 if ($Sync -and $Additive) {
     throw "-Sync and -Additive cannot be used together."
 }
-if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-    throw "Node.js 22.19.0 or newer is required."
-}
-if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
-    throw "npm is required."
+
+# Smart mirror detection for Mainland China users
+$NpmRegistry = if ($env:NPM_REGISTRY) { $env:NPM_REGISTRY } else { "https://registry.npmjs.org" }
+$NodeDistMirror = if ($env:NODE_DIST_MIRROR) { $env:NODE_DIST_MIRROR } else { "https://nodejs.org/dist" }
+
+if ($Cn -or $env:PI_KIT_MIRROR -eq "cn") {
+    Write-Info "China mirror mode enabled (-Cn); using npmmirror for high-speed download"
+    $NpmRegistry = "https://registry.npmmirror.com"
+    $NodeDistMirror = "https://npmmirror.com/mirrors/node"
+    $env:PLAYWRIGHT_DOWNLOAD_HOST = "https://npmmirror.com/mirrors/playwright/"
+} else {
+    try {
+        $req = [System.Net.WebRequest]::Create("https://registry.npmmirror.com")
+        $req.Timeout = 1500
+        $resp = $req.GetResponse()
+        $resp.Close()
+
+        $reqOrg = [System.Net.WebRequest]::Create("https://registry.npmjs.org")
+        $reqOrg.Timeout = 1200
+        try {
+            $respOrg = $reqOrg.GetResponse()
+            $respOrg.Close()
+        } catch {
+            Write-Info "mainland China network detected; using npmmirror for high-speed download"
+            $NpmRegistry = "https://registry.npmmirror.com"
+            $NodeDistMirror = "https://npmmirror.com/mirrors/node"
+            $env:PLAYWRIGHT_DOWNLOAD_HOST = "https://npmmirror.com/mirrors/playwright/"
+        }
+    } catch {}
 }
 
-$NodeVersion = [version]((& node --version).TrimStart("v"))
-if ($NodeVersion -lt [version]"22.19.0") {
-    throw "Node.js 22.19.0 or newer is required; found v$NodeVersion."
+# Zero-dependency Node.js bootstrap for Windows
+$NodeCommand = Get-Command node -ErrorAction SilentlyContinue
+$NpmCommand = Get-Command npm -ErrorAction SilentlyContinue
+$NeedNode = -not $NodeCommand -or -not $NpmCommand
+
+if (-not $NeedNode) {
+    try {
+        $NodeVer = [version]((& node --version).TrimStart("v"))
+        if ($NodeVer -lt [version]"22.19.0") { $NeedNode = $true }
+    } catch {
+        $NeedNode = $true
+    }
+}
+
+if ($NeedNode) {
+    Write-Info "Node.js 22.19.0+ is required; auto-installing portable Node.js..."
+    $NodeVersion = "v22.22.0"
+    $NodeDistName = "node-$NodeVersion-win-x64"
+    $NodeZipUrl = "$NodeDistMirror/$NodeVersion/$NodeDistName.zip"
+    $LocalPrograms = Join-Path $HOME ".local\nodejs"
+    $TempZip = Join-Path $env:TEMP "$NodeDistName.zip"
+
+    Write-Info "downloading Node.js from $NodeZipUrl"
+    Invoke-WebRequest -Uri $NodeZipUrl -OutFile $TempZip -UseBasicParsing
+    New-Item -ItemType Directory -Force -Path $LocalPrograms | Out-Null
+    Expand-Archive -Path $TempZip -DestinationPath $LocalPrograms -Force
+    Remove-Item -Force $TempZip
+
+    $NodeBinDir = Join-Path $LocalPrograms $NodeDistName
+    $env:PATH = "$NodeBinDir;$env:PATH"
+    [Environment]::SetEnvironmentVariable("PATH", "$NodeBinDir;" + [Environment]::GetEnvironmentVariable("PATH", "User"), "User")
+    Write-Info "installed portable Node.js to $NodeBinDir"
 }
 
 $PiCommand = Get-Command pi -ErrorAction SilentlyContinue
 $InstalledVersion = if ($PiCommand) { [version]((& $PiCommand.Source --version).Trim()) } else { [version]"0.0.0" }
-$LatestVersionText = (& npm view $PiNpmName version 2>$null)
+$LatestVersionText = (& npm view $PiNpmName version --registry $NpmRegistry 2>$null)
 $LatestVersion = if ($LASTEXITCODE -eq 0 -and $LatestVersionText) { [version]$LatestVersionText.Trim() } else { $null }
 
 if (-not $PiCommand) {
     Write-Info "installing latest Pi"
-    Invoke-Checked "npm" @("install", "--global", "--ignore-scripts", $PiNpmPackage)
+    Invoke-Checked "npm" @("install", "--global", "--ignore-scripts", "--registry", $NpmRegistry, $PiNpmPackage)
 } elseif ($InstalledVersion -lt $MinimumPiVersion -or ($LatestVersion -and $InstalledVersion -ne $LatestVersion)) {
     Write-Info "upgrading Pi from $InstalledVersion to latest"
-    Invoke-Checked "npm" @("install", "--global", "--ignore-scripts", $PiNpmPackage)
+    Invoke-Checked "npm" @("install", "--global", "--ignore-scripts", "--registry", $NpmRegistry, $PiNpmPackage)
 } else {
     Write-Info "Pi $InstalledVersion is current"
 }
@@ -58,6 +112,11 @@ $PiCommand = Get-Command pi -ErrorAction Stop
 $AgentDir = if ($env:PI_CODING_AGENT_DIR) { $env:PI_CODING_AGENT_DIR } else { Join-Path $HOME ".pi/agent" }
 $SettingsFile = Join-Path $AgentDir "settings.json"
 New-Item -ItemType Directory -Force -Path $AgentDir | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $AgentDir "npm") | Out-Null
+
+if ($NpmRegistry) {
+    [IO.File]::WriteAllText((Join-Path $AgentDir "npm\.npmrc"), "registry=$NpmRegistry`n")
+}
 
 function Get-PackageSource($Entry) {
     if ($Entry -is [string]) { return $Entry }
@@ -99,11 +158,11 @@ if ($Mode -eq "sync") {
     if ($env:PI_KIT_SKIP_PLAYWRIGHT_INSTALL -ne "1") {
         $Playwright = Get-Command playwright -ErrorAction SilentlyContinue
         $PlaywrightVersion = if ($Playwright) { [version]((& $Playwright.Source --version).Trim().Split()[-1]) } else { $null }
-        $LatestPlaywrightText = (& npm view playwright version 2>$null)
+        $LatestPlaywrightText = (& npm view playwright version --registry $NpmRegistry 2>$null)
         $LatestPlaywrightVersion = if ($LASTEXITCODE -eq 0 -and $LatestPlaywrightText) { [version]$LatestPlaywrightText.Trim() } else { $null }
         if (-not $PlaywrightVersion -or ($LatestPlaywrightVersion -and $PlaywrightVersion -ne $LatestPlaywrightVersion)) {
             Write-Info "installing or upgrading Playwright CLI (Chromium is installed on demand)"
-            Invoke-Checked "npm" @("install", "--global", "playwright@latest")
+            Invoke-Checked "npm" @("install", "--global", "--registry", $NpmRegistry, "playwright@latest")
         } else {
             Write-Info "Playwright CLI $PlaywrightVersion is current"
         }

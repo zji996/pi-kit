@@ -7,33 +7,37 @@ The managed Pi packages are:
 - `pi-hashline-edit-pro` for stale-safe, hash-anchored `read`, `replace`, and `insert`
 - `pi-web-access` for lightweight web search and HTML-to-Markdown retrieval
 
-## Install or sync
+## One-Click Install or Sync
 
-Forgejo, Linux or macOS:
+The script is completely self-contained. On fresh machines without Node.js, it automatically installs a portable Node.js 22 LTS runtime without requiring `sudo`/root permissions. In Mainland China, it automatically detects the network and uses high-speed mirrors (npmmirror) for Node.js, npm, and Playwright.
 
-```sh
-curl -fsSL https://git.aiatechco.com:31443/zji996/pi-kit/raw/branch/main/install.sh | sh -s -- --sync
-```
-
-GitHub fallback:
+### Linux / macOS (Forgejo self-hosted entry)
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/zji996/pi-kit/main/install.sh | sh -s -- --sync
+curl -fsSL 'https://git.aiatechco.com:31443/zji996/pi-kit/raw/branch/main/install.sh' | sh -s -- --sync
 ```
 
-Windows PowerShell (sync is the default):
+*(Optional: add `--cn` to force domestic mirror mode: `... | sh -s -- --sync --cn`)*
+
+### GitHub fallback
+
+```sh
+curl -fsSL 'https://raw.githubusercontent.com/zji996/pi-kit/main/install.sh' | sh -s -- --sync
+```
+
+### Windows PowerShell
 
 ```powershell
 irm 'https://git.aiatechco.com:31443/zji996/pi-kit/raw/branch/main/install.ps1' | iex
 ```
 
-From a clone:
+*(Optional: force domestic mirror mode: `& ([scriptblock]::Create((irm 'https://git.aiatechco.com:31443/zji996/pi-kit/raw/branch/main/install.ps1'))) -Sync -Cn`)*
+
+### From a local clone
 
 ```sh
 ./sync.sh
 ```
-
-Requirements: Node.js `22.19.0` or newer and internet access to npm. Pi and both Pi packages track npm latest. Playwright CLI is installed globally when absent; its Chromium binary remains on-demand via `npx playwright install chromium`.
 
 ## Declarative result
 
@@ -45,6 +49,7 @@ The canonical settings are [`settings.unix.json`](settings.unix.json) and [`sett
 - only `npm:pi-hashline-edit-pro` and `npm:pi-web-access`
 - the managed `playwright-cli` skill
 - hashline auto-read enabled and `anchor_grep` disabled
+- zero self-referential symlinks; automatically symlinks `pi` and `playwright` into `~/.local/bin`
 
 Packages outside the manifest, including old `pi-subagents` entries, are removed through `pi remove`. A changed settings file is backed up under `~/.pi/agent/backups/` before the canonical file replaces it.
 
