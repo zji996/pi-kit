@@ -1,0 +1,25 @@
+{
+  "defaultThinkingLevel": "high",
+  "compaction": {
+    "enabled": true,
+    "reserveTokens": 32768,
+    "keepRecentTokens": 40000
+  },
+  "branchSummary": {
+    "reserveTokens": 32768
+  },
+  "defaultTools": [
+    "read",
+    "powershell",
+    "edit",
+    "write"
+  ],
+  "enableSkillCommands": true,
+  "packages": [
+    "npm:pi-hashline-edit-pro",
+    "npm:pi-web-access"
+  ],
+  "skills": [
+    "skills/playwright-cli"
+  ]
+}

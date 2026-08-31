@@ -1,96 +1,76 @@
 # pi-kit
 
-A curated Pi setup for coding work. Every run installs the current npm latest of:
+A declarative Pi setup for coding work. It installs the latest `@earendil-works/pi-coding-agent`, keeps exactly two Pi packages, and applies a repeatable long-session/tool policy on Linux, macOS, and Windows.
 
-- `pi-hashline-edit-pro` (Line-hash precise editing, highly resilient to context drift)
-- `pi-web-access` (Web search & URL fetching)
+The managed Pi packages are:
 
-The installer is idempotent. Pi deduplicates packages by npm package name, so
-rerunning it adds missing packages and updates existing ones without creating
-duplicate entries. Other Pi packages, credentials, providers, models,
-sessions, and project settings are left unchanged.
+- `pi-hashline-edit-pro` for stale-safe, hash-anchored `read`, `replace`, and `insert`
+- `pi-web-access` for lightweight web search and HTML-to-Markdown retrieval
 
-## Install
+## Install or sync
 
-### Option A: Via Self-Hosted Git (192.168.8.6 / Forgejo)
-
-macOS or Linux:
+Forgejo, Linux or macOS:
 
 ```sh
-curl -fsSL https://git.aiatechco.com/zji996/pi-kit/raw/branch/main/install.sh | sh
+curl -fsSL https://git.aiatechco.com/zji996/pi-kit/raw/branch/main/install.sh | sh -s -- --sync
 ```
 
-Windows PowerShell:
+GitHub fallback:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/zji996/pi-kit/main/install.sh | sh -s -- --sync
+```
+
+Windows PowerShell (sync is the default):
 
 ```powershell
 irm 'https://git.aiatechco.com/zji996/pi-kit/raw/branch/main/install.ps1' | iex
 ```
 
-### Option B: Via GitHub
-
-macOS or Linux:
+From a clone:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/zji996/pi-kit/v1.3.0/install.sh | sh
+./sync.sh
 ```
 
-Windows PowerShell:
+Requirements: Node.js `22.19.0` or newer and internet access to npm. Pi and both Pi packages track npm latest. Playwright CLI is installed globally when absent; its Chromium binary remains on-demand via `npx playwright install chromium`.
 
-```powershell
-irm 'https://raw.githubusercontent.com/zji996/pi-kit/v1.3.0/install.ps1' | iex
-```
+## Declarative result
 
-### Option C: Git Clone
+The canonical settings are [`settings.unix.json`](settings.unix.json) and [`settings.windows.json`](settings.windows.json). Sync applies:
+
+- `defaultThinkingLevel: high`
+- compaction reserve `32768`, recent context `40000`, branch reserve `32768`
+- built-ins `read/bash/edit/write` on Unix or `read/powershell/edit/write` on Windows; `grep/find/ls` are excluded
+- only `npm:pi-hashline-edit-pro` and `npm:pi-web-access`
+- the managed `playwright-cli` skill
+- hashline auto-read enabled and `anchor_grep` disabled
+
+Packages outside the manifest, including old `pi-subagents` entries, are removed through `pi remove`. A changed settings file is backed up under `~/.pi/agent/backups/` before the canonical file replaces it.
+
+Sync never reads or writes `auth.json`, `models.json`, `models-store.json`, `sessions/`, or project-local Pi state. These files remain machine-specific.
+
+For legacy additive behavior without settings replacement or package cleanup:
 
 ```sh
-git clone ssh://git@git.aiatechco.com:30222/zji996/pi-kit.git
-cd pi-kit && sh install.sh
+./install.sh --additive
 ```
 
-Requirements: internet access and Node.js `22.19.0` or newer. If Pi is not
-installed, the bootstrap installs the latest `@earendil-works/pi-coding-agent`
-with npm first. Existing compatible Pi installations are preserved.
+## Tool workflow
 
-## Best Practices & Context Budget Guide
+Use hashline `read/replace/insert` for precise edits and stale-anchor protection. Use `bash` with `rg`, `fd`, Git, compilers, and repository checks for discovery and automation. Use `pi-web-access` for static web content and the managed Playwright skill for SPAs, screenshots, traces, or existing end-to-end tests.
 
-For in-depth guidance on context budgeting, Low-Thinking summarization strategies, and maximizing Prompt Cache hits in long sessions, see [`docs/context-budget-guide.md`](docs/context-budget-guide.md).
+See [`docs/context-budget-guide.md`](docs/context-budget-guide.md) for the compaction and prompt-cache policy.
 
-## What changes
-
-The bootstrap uses Pi's own package manager. The unversioned sources in
-[`packages.list`](packages.list) resolve to npm latest each time. Existing
-pinned entries for the same package are changed to unversioned entries in
-place; Pi preserves their resource filters and all unrelated package entries.
-
-It does not copy or publish anything from `~/.pi`, including `auth.json`, API
-keys, custom providers, models, or session history.
-
-## Update or remove
-
-Rerun the same install command to update the packages to their current npm latest versions.
-
-Remove individual packages with Pi:
-
-```sh
-pi remove npm:pi-hashline-edit-pro
-pi remove npm:pi-web-access
-```
-
-## Development
+## Verify
 
 ```sh
 ./scripts/check.sh
 ./scripts/test-install.sh
+pi list
 ```
 
-The install test redirects Pi to a temporary configuration directory and does
-not touch the developer's regular Pi setup.
-
-## 中文说明
-
-这是一个公开的 Pi 插件追加/更新清单与最佳实践配置库。每次运行都会把目标插件（`pi-hashline-edit-pro` 和 `pi-web-access`）补齐并更新到 npm latest；Pi 按包名自动去重，其他插件、API Key、模型配置和会话保持不变。
-
-详细的长会话上下文预算与 Low-Thinking 思考等级调优指南见 [`docs/context-budget-guide.md`](docs/context-budget-guide.md)。
+The isolated test starts from dirty packages and settings, checks exact convergence and a second idempotent run, and verifies protected files byte-for-byte.
 
 ## License
 

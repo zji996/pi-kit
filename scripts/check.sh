@@ -4,6 +4,7 @@ set -eu
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 
 sh -n "$repo_dir/install.sh"
+sh -n "$repo_dir/sync.sh"
 node "$repo_dir/scripts/check.mjs"
 
 if command -v pwsh >/dev/null 2>&1; then

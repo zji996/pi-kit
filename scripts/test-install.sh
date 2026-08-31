@@ -9,80 +9,97 @@ cleanup() {
 }
 trap cleanup EXIT HUP INT TERM
 
-mkdir -p "$test_dir/agent"
-export PI_CODING_AGENT_DIR="$test_dir/agent"
-node - "$test_dir/agent/settings.json" <<'NODE'
-const { writeFileSync } = require("node:fs");
+agent_dir="$test_dir/agent"
+mkdir -p "$agent_dir/sessions/project" "$agent_dir/npm/node_modules/pi-subagents" "$test_dir/xdg"
+export PI_CODING_AGENT_DIR="$agent_dir"
+export XDG_CONFIG_HOME="$test_dir/xdg"
+export PI_KIT_SKIP_PLAYWRIGHT_INSTALL=1
+
+node - "$agent_dir" <<'NODE'
+const { mkdirSync, writeFileSync } = require("node:fs");
+const { join } = require("node:path");
+const agent = process.argv[2];
 
 const settings = {
+  defaultProvider: "must-be-overwritten",
+  theme: "dirty-theme",
+  compaction: { reserveTokens: 1, keepRecentTokens: 2 },
   packages: [
-    "npm:existing-plugin@1.2.3",
     "npm:pi-subagents@0.60.0",
-    {
-      source: "npm:pi-hashline-edit-pro@2.8.0",
-      extensions: ["index.ts"],
-    },
+    { source: "npm:pi-hashline-edit-pro@2.8.0", extensions: ["index.ts"] },
     "npm:pi-web-access@0.26.0",
   ],
 };
-
-writeFileSync(process.argv[2], `${JSON.stringify(settings, null, 2)}\n`);
+writeFileSync(join(agent, "settings.json"), `${JSON.stringify(settings, null, 2)}\n`);
+writeFileSync(join(agent, "auth.json"), '{"token":"local-only"}\n');
+writeFileSync(join(agent, "models.json"), '{"models":["local"]}\n');
+writeFileSync(join(agent, "models-store.json"), '{"cache":"local"}\n');
+writeFileSync(join(agent, "sessions/project/session.jsonl"), '{"message":"local session"}\n');
+writeFileSync(join(agent, "npm/package.json"), '{"private":true,"dependencies":{"pi-subagents":"0.60.0"}}\n');
+mkdirSync(join(agent, "npm/node_modules/pi-subagents"), { recursive: true });
+writeFileSync(join(agent, "npm/node_modules/pi-subagents/package.json"), '{"name":"pi-subagents","version":"0.60.0"}\n');
 NODE
 
-sh "$repo_dir/install.sh"
+mkdir -p "$test_dir/protected"
+cp "$agent_dir/auth.json" "$test_dir/protected/auth.json"
+cp "$agent_dir/models.json" "$test_dir/protected/models.json"
+cp "$agent_dir/models-store.json" "$test_dir/protected/models-store.json"
+cp "$agent_dir/sessions/project/session.jsonl" "$test_dir/protected/session.jsonl"
 
-settings="$test_dir/agent/settings.json"
-[ -f "$settings" ] || {
-  printf '%s\n' 'pi-kit: isolated install did not create settings.json' >&2
+sh "$repo_dir/install.sh" --sync
+
+node - "$agent_dir" "$repo_dir/settings.unix.json" <<'NODE'
+const { readFileSync } = require("node:fs");
+const { join } = require("node:path");
+const agent = process.argv[2];
+const expected = JSON.parse(readFileSync(process.argv[3], "utf8"));
+const actual = JSON.parse(readFileSync(join(agent, "settings.json"), "utf8"));
+if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error("settings did not converge to canonical state");
+
+const dependencies = Object.keys(JSON.parse(readFileSync(join(agent, "npm/package.json"), "utf8")).dependencies ?? {}).sort();
+const expectedDependencies = ["pi-hashline-edit-pro", "pi-web-access"];
+if (JSON.stringify(dependencies) !== JSON.stringify(expectedDependencies)) {
+  throw new Error(`unexpected direct dependencies: ${dependencies.join(", ")}`);
+}
+NODE
+
+cmp "$agent_dir/auth.json" "$test_dir/protected/auth.json"
+cmp "$agent_dir/models.json" "$test_dir/protected/models.json"
+cmp "$agent_dir/models-store.json" "$test_dir/protected/models-store.json"
+cmp "$agent_dir/sessions/project/session.jsonl" "$test_dir/protected/session.jsonl"
+cmp "$agent_dir/skills/playwright-cli/SKILL.md" "$repo_dir/skills/playwright-cli/SKILL.md"
+node -e '
+  const config = require(process.argv[1]);
+  if (config.autoRead !== true || config.anchorGrepEnabled !== false) process.exit(1);
+' "$XDG_CONFIG_HOME/pi-hashline-edit-pro/config.json"
+[ ! -e "$agent_dir/npm/node_modules/pi-subagents" ] || {
+  printf '%s\n' 'pi-kit: stale pi-subagents directory was not uninstalled' >&2
   exit 1
 }
 
-node - "$settings" "$repo_dir/packages.list" <<'NODE'
-const { readFileSync } = require("node:fs");
-const { execFileSync } = require("node:child_process");
-const settings = JSON.parse(readFileSync(process.argv[2], "utf8"));
-const expected = readFileSync(process.argv[3], "utf8")
-  .split(/\r?\n/)
-  .map((line) => line.trim())
-  .filter((line) => line && !line.startsWith("#"));
-
-for (const source of expected) {
-  const matches = settings.packages.filter((entry) =>
-    (typeof entry === "string" ? entry : entry.source) === source,
-  );
-  if (matches.length !== 1) {
-    throw new Error(`${source} appears ${matches.length} times in settings`);
-  }
-
-  const name = source.slice("npm:".length);
-  const installed = JSON.parse(
-    readFileSync(`${process.env.PI_CODING_AGENT_DIR}/npm/node_modules/${name}/package.json`, "utf8"),
-  ).version;
-  const latest = JSON.parse(
-    execFileSync("npm", ["view", name, "dist-tags.latest", "--json"], { encoding: "utf8" }),
-  );
-  if (installed !== latest) {
-    throw new Error(`${name}: installed ${installed}, npm latest is ${latest}`);
-  }
+backup_count=$(find "$agent_dir/backups" -type f -name 'settings.pre-pi-kit.*.json' | wc -l)
+[ "$backup_count" -eq 1 ] || {
+  printf '%s\n' "pi-kit: expected one settings backup, found $backup_count" >&2
+  exit 1
 }
 
-if (!settings.packages.includes("npm:existing-plugin@1.2.3")) {
-  throw new Error("unrelated existing package was changed or removed");
+cp "$agent_dir/settings.json" "$test_dir/settings.after-first.json"
+cp "$XDG_CONFIG_HOME/pi-hashline-edit-pro/config.json" "$test_dir/hashline.after-first.json"
+sh "$repo_dir/install.sh" --sync >/dev/null
+cmp "$agent_dir/settings.json" "$test_dir/settings.after-first.json"
+cmp "$XDG_CONFIG_HOME/pi-hashline-edit-pro/config.json" "$test_dir/hashline.after-first.json"
+backup_count_after=$(find "$agent_dir/backups" -type f -name 'settings.pre-pi-kit.*.json' | wc -l)
+[ "$backup_count_after" -eq "$backup_count" ] || {
+  printf '%s\n' 'pi-kit: idempotent sync created another settings backup' >&2
+  exit 1
 }
 
-if (!settings.packages.includes("npm:pi-subagents@0.60.0")) {
-  throw new Error("previously installed pi-subagents should not be removed implicitly");
-}
+list_output=$(pi list)
+printf '%s\n' "$list_output" | grep -q 'npm:pi-hashline-edit-pro'
+printf '%s\n' "$list_output" | grep -q 'npm:pi-web-access'
+if printf '%s\n' "$list_output" | grep -q 'pi-subagents'; then
+  printf '%s\n' 'pi-kit: pi-subagents remains in pi list' >&2
+  exit 1
+fi
 
-const hashline = settings.packages.find(
-  (entry) => typeof entry === "object" && entry.source === "npm:pi-hashline-edit-pro",
-);
-if (!hashline || JSON.stringify(hashline.extensions) !== JSON.stringify(["index.ts"])) {
-  throw new Error("existing package filters were not preserved");
-}
-NODE
-
-cp "$settings" "$test_dir/settings.after-first.json"
-sh "$repo_dir/install.sh" >/dev/null
-cmp "$settings" "$test_dir/settings.after-first.json"
-printf '%s\n' 'pi-kit: latest, preservation, deduplication, and idempotency checks passed'
+printf '%s\n' 'pi-kit: clean sync, private-state protection, and idempotency checks passed'
