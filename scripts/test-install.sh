@@ -19,7 +19,7 @@ const settings = {
     "npm:existing-plugin@1.2.3",
     "npm:pi-subagents@0.60.0",
     {
-      source: "npm:pi-semantic-edit@0.3.0",
+      source: "npm:pi-hashline-edit-pro@2.8.0",
       extensions: ["index.ts"],
     },
     "npm:pi-web-access@0.26.0",
@@ -74,10 +74,10 @@ if (!settings.packages.includes("npm:pi-subagents@0.60.0")) {
   throw new Error("previously installed pi-subagents should not be removed implicitly");
 }
 
-const semantic = settings.packages.find(
-  (entry) => typeof entry === "object" && entry.source === "npm:pi-semantic-edit",
+const hashline = settings.packages.find(
+  (entry) => typeof entry === "object" && entry.source === "npm:pi-hashline-edit-pro",
 );
-if (!semantic || JSON.stringify(semantic.extensions) !== JSON.stringify(["index.ts"])) {
+if (!hashline || JSON.stringify(hashline.extensions) !== JSON.stringify(["index.ts"])) {
   throw new Error("existing package filters were not preserved");
 }
 NODE

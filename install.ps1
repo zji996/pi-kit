@@ -3,7 +3,7 @@ $ErrorActionPreference = "Stop"
 $PiNpmPackage = "@earendil-works/pi-coding-agent@latest"
 $MinimumPiVersion = [version]"0.84.4"
 $Packages = @(
-    "npm:pi-semantic-edit",
+    "npm:pi-hashline-edit-pro",
     "npm:pi-web-access"
 )
 

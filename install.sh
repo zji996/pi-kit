@@ -4,7 +4,7 @@ set -eu
 PI_NPM_PACKAGE='@earendil-works/pi-coding-agent@latest'
 MINIMUM_PI_VERSION='0.84.4'
 PACKAGES='
-npm:pi-semantic-edit
+npm:pi-hashline-edit-pro
 npm:pi-web-access
 '
 

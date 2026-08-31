@@ -1,9 +1,9 @@
 # pi-kit
 
-A small Pi setup for coding work. Every run installs the current npm latest of:
+A curated Pi setup for coding work. Every run installs the current npm latest of:
 
-- `pi-semantic-edit`
-- `pi-web-access`
+- `pi-hashline-edit-pro` (Line-hash precise editing, highly resilient to context drift)
+- `pi-web-access` (Web search & URL fetching)
 
 The installer is idempotent. Pi deduplicates packages by npm package name, so
 rerunning it adds missing packages and updates existing ones without creating
@@ -12,30 +12,48 @@ sessions, and project settings are left unchanged.
 
 ## Install
 
+### Option A: Via Self-Hosted Git (192.168.8.6 / Forgejo)
+
 macOS or Linux:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/zji996/pi-kit/v1.2.0/install.sh | sh
+curl -fsSL https://git.aiatechco.com/zji996/pi-kit/raw/branch/main/install.sh | sh
 ```
 
 Windows PowerShell:
 
 ```powershell
-irm 'https://raw.githubusercontent.com/zji996/pi-kit/v1.2.0/install.ps1' | iex
+irm 'https://git.aiatechco.com/zji996/pi-kit/raw/branch/main/install.ps1' | iex
+```
+
+### Option B: Via GitHub
+
+macOS or Linux:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/zji996/pi-kit/v1.3.0/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm 'https://raw.githubusercontent.com/zji996/pi-kit/v1.3.0/install.ps1' | iex
+```
+
+### Option C: Git Clone
+
+```sh
+git clone ssh://git@git.aiatechco.com:30222/zji996/pi-kit.git
+cd pi-kit && sh install.sh
 ```
 
 Requirements: internet access and Node.js `22.19.0` or newer. If Pi is not
 installed, the bootstrap installs the latest `@earendil-works/pi-coding-agent`
 with npm first. Existing compatible Pi installations are preserved.
 
-The one-line commands use an immutable release tag. To review the Unix
-installer first:
+## Best Practices & Context Budget Guide
 
-```sh
-curl -fsSLO https://raw.githubusercontent.com/zji996/pi-kit/v1.2.0/install.sh
-less install.sh
-sh install.sh
-```
+For in-depth guidance on context budgeting, Low-Thinking summarization strategies, and maximizing Prompt Cache hits in long sessions, see [`docs/context-budget-guide.md`](docs/context-budget-guide.md).
 
 ## What changes
 
@@ -49,20 +67,12 @@ keys, custom providers, models, or session history.
 
 ## Update or remove
 
-Rerun the same install command to update these two packages to their current
-npm latest versions. It does not update or remove unrelated packages.
-
-`pi-subagents` was removed from this kit in `v1.2.0`. Existing installations
-are preserved by design; remove it explicitly when no longer wanted:
-
-```sh
-pi remove npm:pi-subagents
-```
+Rerun the same install command to update the packages to their current npm latest versions.
 
 Remove individual packages with Pi:
 
 ```sh
-pi remove npm:pi-semantic-edit
+pi remove npm:pi-hashline-edit-pro
 pi remove npm:pi-web-access
 ```
 
@@ -78,9 +88,9 @@ not touch the developer's regular Pi setup.
 
 ## 中文说明
 
-这是一个公开的 Pi 插件追加/更新清单。每次运行都会把目标两个插件补齐并
-更新到 npm latest；Pi 按包名自动去重，其他插件、API Key、模型配置和会话
-保持不变。macOS/Linux 使用 `install.sh`，Windows 使用 `install.ps1`。
+这是一个公开的 Pi 插件追加/更新清单与最佳实践配置库。每次运行都会把目标插件（`pi-hashline-edit-pro` 和 `pi-web-access`）补齐并更新到 npm latest；Pi 按包名自动去重，其他插件、API Key、模型配置和会话保持不变。
+
+详细的长会话上下文预算与 Low-Thinking 思考等级调优指南见 [`docs/context-budget-guide.md`](docs/context-budget-guide.md)。
 
 ## License
 
