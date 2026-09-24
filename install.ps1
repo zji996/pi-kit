@@ -9,7 +9,7 @@ $PiNpmName = "@earendil-works/pi-coding-agent"
 $PiNpmPackage = "@earendil-works/pi-coding-agent@latest"
 $MinimumPiVersion = [version]"0.84.4"
 $Packages = @(
-    "npm:pi-hashline-edit-pro",
+    "npm:pi-semantic-edit",
     "npm:pi-web-access"
 )
 $Mode = if ($Additive) { "additive" } else { "sync" }

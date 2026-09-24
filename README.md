@@ -4,7 +4,7 @@ A declarative Pi setup for coding work. It installs the latest `@earendil-works/
 
 The managed Pi packages are:
 
-- `pi-hashline-edit-pro` for stale-safe, hash-anchored `read`, `replace`, and `insert`
+- `pi-semantic-edit` for robust, fuzzy-matched, and whitespace-tolerant code edits
 - `pi-web-access` for lightweight web search and HTML-to-Markdown retrieval
 
 ## One-Click Install or Sync
@@ -46,9 +46,8 @@ The canonical settings are [`settings.unix.json`](settings.unix.json) and [`sett
 - `defaultThinkingLevel: high`
 - compaction reserve `32768`, recent context `40000`, branch reserve `32768`
 - built-ins `read/bash/edit/write` on Unix or `read/powershell/edit/write` on Windows; `grep/find/ls` are excluded
-- only `npm:pi-hashline-edit-pro` and `npm:pi-web-access`
+- only `npm:pi-semantic-edit` and `npm:pi-web-access`
 - the managed `playwright-cli` skill
-- hashline auto-read enabled and `anchor_grep` disabled
 - zero self-referential symlinks; automatically symlinks `pi` and `playwright` into `~/.local/bin`
 
 Packages outside the manifest, including old `pi-subagents` entries, are removed through `pi remove`. A changed settings file is backed up under `~/.pi/agent/backups/` before the canonical file replaces it.
@@ -63,7 +62,7 @@ For legacy additive behavior without settings replacement or package cleanup:
 
 ## Tool workflow
 
-Use hashline `read/replace/insert` for precise edits and stale-anchor protection. Use `bash` with `rg`, `fd`, Git, compilers, and repository checks for discovery and automation. Use `pi-web-access` for static web content and the managed Playwright skill for SPAs, screenshots, traces, or existing end-to-end tests.
+Use `edit` (enhanced by `pi-semantic-edit`) for precise and drift-tolerant code edits. Use `bash` with `rg`, `fd`, Git, compilers, and repository checks for discovery and automation. Use `pi-web-access` for static web content and the managed Playwright skill for SPAs, screenshots, traces, or existing end-to-end tests.
 
 See [`docs/context-budget-guide.md`](docs/context-budget-guide.md) for the compaction and prompt-cache policy.
 

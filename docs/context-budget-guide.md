@@ -22,8 +22,7 @@ Keep the system prompt deterministic and avoid changing models without a task re
 
 ## Tool policy
 
-- Use hashline `read`, `replace`, and `insert` for edits. A stale anchor must fail and force a fresh read.
-- `anchor_grep` is disabled. Use `rg` through Bash for repository-wide search.
+- Use `edit` (enhanced by `pi-semantic-edit`) for code edits.
 - Built-in `grep`, `find`, and `ls` are not enabled in canonical settings. Use `rg --files`, `fd`, and shell pipelines.
 - Use `pi-web-access` for search and static page conversion.
 - Use Playwright for dynamic pages, screenshots, traces, and repository end-to-end tests. Install Chromium on demand with `npx playwright install chromium`.

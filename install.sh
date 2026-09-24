@@ -6,7 +6,7 @@ PI_NPM_PACKAGE="$PI_NPM_NAME@latest"
 MINIMUM_PI_VERSION='0.84.4'
 PLAYWRIGHT_NPM_PACKAGE='playwright@latest'
 PACKAGES='
-npm:pi-hashline-edit-pro
+npm:pi-semantic-edit
 npm:pi-web-access
 '
 MODE='sync'
@@ -204,7 +204,7 @@ if [ "$MODE" = 'sync' ] && [ -f "$settings_file" ]; then
   node - "$settings_file" <<'NODE' | while IFS= read -r package; do
 const { readFileSync } = require("node:fs");
 
-const desired = new Set(["npm:pi-hashline-edit-pro", "npm:pi-web-access"]);
+const desired = new Set(["npm:pi-semantic-edit", "npm:pi-web-access"]);
 const settings = JSON.parse(readFileSync(process.argv[2], "utf8"));
 const entries = Array.isArray(settings.packages) ? settings.packages : [];
 
@@ -316,7 +316,7 @@ JSON
   ],
   "enableSkillCommands": true,
   "packages": [
-    "npm:pi-hashline-edit-pro",
+    "npm:pi-semantic-edit",
     "npm:pi-web-access"
   ],
   "skills": [

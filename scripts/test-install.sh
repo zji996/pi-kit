@@ -57,7 +57,7 @@ const actual = JSON.parse(readFileSync(join(agent, "settings.json"), "utf8"));
 if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error("settings did not converge to canonical state");
 
 const dependencies = Object.keys(JSON.parse(readFileSync(join(agent, "npm/package.json"), "utf8")).dependencies ?? {}).sort();
-const expectedDependencies = ["pi-hashline-edit-pro", "pi-web-access"];
+const expectedDependencies = ["pi-semantic-edit", "pi-web-access"];
 if (JSON.stringify(dependencies) !== JSON.stringify(expectedDependencies)) {
   throw new Error(`unexpected direct dependencies: ${dependencies.join(", ")}`);
 }
@@ -95,7 +95,7 @@ backup_count_after=$(find "$agent_dir/backups" -type f -name 'settings.pre-pi-ki
 }
 
 list_output=$(pi list)
-printf '%s\n' "$list_output" | grep -q 'npm:pi-hashline-edit-pro'
+printf '%s\n' "$list_output" | grep -q 'npm:pi-semantic-edit'
 printf '%s\n' "$list_output" | grep -q 'npm:pi-web-access'
 if printf '%s\n' "$list_output" | grep -q 'pi-subagents'; then
   printf '%s\n' 'pi-kit: pi-subagents remains in pi list' >&2

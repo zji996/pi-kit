@@ -16,7 +16,7 @@
   ],
   "enableSkillCommands": true,
   "packages": [
-    "npm:pi-hashline-edit-pro",
+    "npm:pi-semantic-edit",
     "npm:pi-web-access"
   ],
   "skills": [
