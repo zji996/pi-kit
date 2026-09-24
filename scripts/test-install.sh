@@ -21,8 +21,11 @@ const { join } = require("node:path");
 const agent = process.argv[2];
 
 const settings = {
-  defaultProvider: "must-be-overwritten",
-  theme: "dirty-theme",
+  defaultProvider: "local-provider",
+  defaultModel: "local-model",
+  theme: "local-theme",
+  defaultThinkingLevel: "low",
+  defaultTools: ["read", "grep"],
   compaction: { reserveTokens: 1, keepRecentTokens: 2 },
   packages: [
     "npm:pi-subagents@0.60.0",
@@ -40,6 +43,10 @@ mkdirSync(join(agent, "npm/node_modules/pi-subagents"), { recursive: true });
 writeFileSync(join(agent, "npm/node_modules/pi-subagents/package.json"), '{"name":"pi-subagents","version":"0.60.0"}\n');
 NODE
 
+# Legacy config written by pi-kit <= 1.4.2 for the retired hashline package.
+mkdir -p "$test_dir/xdg/pi-hashline-edit-pro"
+printf '%s\n' '{' '  "autoRead": true,' '  "anchorGrepEnabled": false' '}' >"$test_dir/xdg/pi-hashline-edit-pro/config.json"
+
 mkdir -p "$test_dir/protected"
 cp "$agent_dir/auth.json" "$test_dir/protected/auth.json"
 cp "$agent_dir/models.json" "$test_dir/protected/models.json"
@@ -52,9 +59,16 @@ node - "$agent_dir" "$repo_dir/settings.unix.json" <<'NODE'
 const { readFileSync } = require("node:fs");
 const { join } = require("node:path");
 const agent = process.argv[2];
-const expected = JSON.parse(readFileSync(process.argv[3], "utf8"));
+const expected = {
+  ...JSON.parse(readFileSync(process.argv[3], "utf8")),
+  defaultProvider: "local-provider",
+  defaultModel: "local-model",
+  theme: "local-theme",
+};
 const actual = JSON.parse(readFileSync(join(agent, "settings.json"), "utf8"));
-if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error("settings did not converge to canonical state");
+if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+  throw new Error(`settings did not converge to canonical state plus local keys: ${JSON.stringify(actual)}`);
+}
 
 const dependencies = Object.keys(JSON.parse(readFileSync(join(agent, "npm/package.json"), "utf8")).dependencies ?? {}).sort();
 const expectedDependencies = ["pi-semantic-edit", "pi-web-access"];
@@ -68,10 +82,10 @@ cmp "$agent_dir/models.json" "$test_dir/protected/models.json"
 cmp "$agent_dir/models-store.json" "$test_dir/protected/models-store.json"
 cmp "$agent_dir/sessions/project/session.jsonl" "$test_dir/protected/session.jsonl"
 cmp "$agent_dir/skills/playwright-cli/SKILL.md" "$repo_dir/skills/playwright-cli/SKILL.md"
-node -e '
-  const config = require(process.argv[1]);
-  if (config.autoRead !== true || config.anchorGrepEnabled !== false) process.exit(1);
-' "$XDG_CONFIG_HOME/pi-hashline-edit-pro/config.json"
+[ ! -e "$XDG_CONFIG_HOME/pi-hashline-edit-pro" ] || {
+  printf '%s\n' 'pi-kit: legacy pi-hashline-edit-pro config was not removed' >&2
+  exit 1
+}
 [ ! -e "$agent_dir/npm/node_modules/pi-subagents" ] || {
   printf '%s\n' 'pi-kit: stale pi-subagents directory was not uninstalled' >&2
   exit 1
@@ -83,11 +97,19 @@ backup_count=$(find "$agent_dir/backups" -type f -name 'settings.pre-pi-kit.*.js
   exit 1
 }
 
+# Pi may rewrite settings.json with its own key order and new local keys;
+# that must not count as drift or trigger another backup.
+node - "$agent_dir/settings.json" <<'NODE'
+const { readFileSync, writeFileSync } = require("node:fs");
+const file = process.argv[2];
+const settings = JSON.parse(readFileSync(file, "utf8"));
+settings.lastChangelogVersion = "9.9.9";
+const reordered = Object.fromEntries(Object.entries(settings).reverse());
+writeFileSync(file, `${JSON.stringify(reordered)}\n`);
+NODE
 cp "$agent_dir/settings.json" "$test_dir/settings.after-first.json"
-cp "$XDG_CONFIG_HOME/pi-hashline-edit-pro/config.json" "$test_dir/hashline.after-first.json"
 sh "$repo_dir/install.sh" --sync >/dev/null
 cmp "$agent_dir/settings.json" "$test_dir/settings.after-first.json"
-cmp "$XDG_CONFIG_HOME/pi-hashline-edit-pro/config.json" "$test_dir/hashline.after-first.json"
 backup_count_after=$(find "$agent_dir/backups" -type f -name 'settings.pre-pi-kit.*.json' | wc -l)
 [ "$backup_count_after" -eq "$backup_count" ] || {
   printf '%s\n' 'pi-kit: idempotent sync created another settings backup' >&2

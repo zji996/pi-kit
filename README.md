@@ -50,7 +50,11 @@ The canonical settings are [`settings.unix.json`](settings.unix.json) and [`sett
 - the managed `playwright-cli` skill
 - zero self-referential symlinks; automatically symlinks `pi` and `playwright` into `~/.local/bin`
 
-Packages outside the manifest, including old `pi-subagents` entries, are removed through `pi remove`. A changed settings file is backed up under `~/.pi/agent/backups/` before the canonical file replaces it.
+Packages outside the manifest, including old `pi-subagents` entries, are removed through `pi remove`. A changed settings file is backed up under `~/.pi/agent/backups/` before the canonical file replaces it. Differences in key order or formatting alone (Pi rewrites `settings.json` itself) do not count as changes.
+
+Machine-local choices are carried over from the existing `settings.json`: `defaultProvider`, `defaultModel`, `enabledModels`, `theme`, and `lastChangelogVersion`. Headless callers such as `pi -p` delegation keep running on the model you selected. The legacy `~/.config/pi-hashline-edit-pro/config.json` written by pi-kit 1.4.2 and earlier is removed when it still holds exactly the values pi-kit wrote.
+
+Global npm tools go to the active npm prefix. If that prefix is not writable (for example a root-owned system Node.js), they go to `~/.local` instead, so no `sudo` is needed. `~/.local/bin/pi` and `~/.local/bin/playwright` are refreshed symlinks; a regular file with that name is left untouched.
 
 Sync never reads or writes `auth.json`, `models.json`, `models-store.json`, `sessions/`, or project-local Pi state. These files remain machine-specific.
 
@@ -74,7 +78,7 @@ See [`docs/context-budget-guide.md`](docs/context-budget-guide.md) for the compa
 pi list
 ```
 
-The isolated test starts from dirty packages and settings, checks exact convergence and a second idempotent run, and verifies protected files byte-for-byte.
+The isolated test starts from dirty packages and settings, checks exact convergence with preserved machine-local keys, legacy config cleanup, and a second idempotent run after Pi-style reordering, and verifies protected files byte-for-byte.
 
 ## License
 

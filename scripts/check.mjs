@@ -45,6 +45,20 @@ for (const value of ['"powershell"', 'reserveTokens = 32768', 'keepRecentTokens 
   if (!powershellInstaller.includes(value)) throw new Error(`install.ps1 is missing canonical value ${value}`);
 }
 
+const preservedKeys = ["defaultProvider", "defaultModel", "enabledModels", "theme", "lastChangelogVersion"];
+const preservedList = preservedKeys.map((key) => `"${key}"`).join(", ");
+if (!shellInstaller.includes(`PRESERVED_KEYS = [${preservedList}]`)) {
+  throw new Error("install.sh preserved machine-local settings keys differ from the canonical list");
+}
+if (!powershellInstaller.includes(`$PreservedKeys = @(${preservedList})`)) {
+  throw new Error("install.ps1 preserved machine-local settings keys differ from the canonical list");
+}
+for (const [name, text] of [["install.sh", shellInstaller], ["install.ps1", powershellInstaller]]) {
+  if (/WriteAllText\(\(Join-Path \$HashlineDir|cat >"\$hashline_tmp"/.test(text)) {
+    throw new Error(`${name} still writes the retired pi-hashline-edit-pro config`);
+  }
+}
+
 const skill = read("skills/playwright-cli/SKILL.md");
 if (!shellInstaller.includes(skill)) throw new Error("install.sh embedded Playwright skill differs from the managed skill");
 if (!powershellInstaller.includes(skill.trimEnd())) {

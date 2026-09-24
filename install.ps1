@@ -190,10 +190,21 @@ Use this skill when a task needs a real browser, dynamic SPA interaction, screen
     $SkillFile = Join-Path $SkillDir "SKILL.md"
     [IO.File]::WriteAllText($SkillFile, $SkillText.Replace("`r`n", "`n") + "`n")
 
+    # pi-kit <= 1.4.2 wrote this config for the retired pi-hashline-edit-pro
+    # package. Remove it only while it still holds exactly what pi-kit wrote.
     $HashlineDir = Join-Path $HOME ".config/pi-hashline-edit-pro"
-    New-Item -ItemType Directory -Force -Path $HashlineDir | Out-Null
-    $HashlineConfig = [ordered]@{ autoRead = $true; anchorGrepEnabled = $false }
-    [IO.File]::WriteAllText((Join-Path $HashlineDir "config.json"), ($HashlineConfig | ConvertTo-Json) + "`n")
+    $HashlineFile = Join-Path $HashlineDir "config.json"
+    if (Test-Path $HashlineFile) {
+        try {
+            $Hashline = Get-Content -Raw $HashlineFile | ConvertFrom-Json
+            $HashlineKeys = @($Hashline.PSObject.Properties.Name | Sort-Object) -join ","
+            if ($HashlineKeys -eq "anchorGrepEnabled,autoRead" -and $Hashline.autoRead -eq $true -and $Hashline.anchorGrepEnabled -eq $false) {
+                Remove-Item -Force $HashlineFile
+                if (-not (Get-ChildItem -Force $HashlineDir)) { Remove-Item -Force $HashlineDir }
+                Write-Info "removed legacy pi-hashline-edit-pro config written by an older pi-kit"
+            }
+        } catch {}
+    }
 
     $DesiredSettings = [ordered]@{
         defaultThinkingLevel = "high"
@@ -204,9 +215,49 @@ Use this skill when a task needs a real browser, dynamic SPA interaction, screen
         packages = $Packages
         skills = @("skills/playwright-cli")
     }
-    $DesiredText = ($DesiredSettings | ConvertTo-Json -Depth 10) + "`n"
+
+    # Machine-local choices survive sync: the selected default model is what
+    # headless callers (for example `pi -p` delegation) run without --model.
+    $PreservedKeys = @("defaultProvider", "defaultModel", "enabledModels", "theme", "lastChangelogVersion")
+    $ExistingText = $null
+    $ExistingSettings = $null
     if (Test-Path $SettingsFile) {
         $ExistingText = [IO.File]::ReadAllText($SettingsFile)
+        try {
+            $ExistingSettings = $ExistingText | ConvertFrom-Json
+        } catch {
+            Write-Info "existing settings.json is not valid JSON; it will be backed up and replaced"
+        }
+    }
+    if ($ExistingSettings) {
+        $ExistingNames = @($ExistingSettings.PSObject.Properties.Name)
+        foreach ($Key in $PreservedKeys) {
+            if ($ExistingNames -contains $Key) { $DesiredSettings[$Key] = $ExistingSettings.$Key }
+        }
+    }
+    $DesiredText = ($DesiredSettings | ConvertTo-Json -Depth 10) + "`n"
+
+    # Key order and formatting are irrelevant to Pi, which may rewrite settings.json itself.
+    function ConvertTo-SortedJson($Value) {
+        if ($null -eq $Value -or $Value -is [string] -or $Value -is [ValueType]) {
+            return ($Value | ConvertTo-Json -Compress)
+        }
+        if ($Value -is [System.Collections.IDictionary]) {
+            $Parts = foreach ($Key in ($Value.Keys | Sort-Object)) { ($Key | ConvertTo-Json -Compress) + ":" + (ConvertTo-SortedJson $Value[$Key]) }
+            return "{" + ($Parts -join ",") + "}"
+        }
+        if ($Value -is [System.Collections.IEnumerable]) {
+            $Parts = foreach ($Item in $Value) { ConvertTo-SortedJson $Item }
+            return "[" + (@($Parts) -join ",") + "]"
+        }
+        $Parts = foreach ($Property in ($Value.PSObject.Properties | Sort-Object Name)) { ($Property.Name | ConvertTo-Json -Compress) + ":" + (ConvertTo-SortedJson $Property.Value) }
+        return "{" + (@($Parts) -join ",") + "}"
+    }
+    if ($ExistingSettings -and (ConvertTo-SortedJson $ExistingSettings) -eq (ConvertTo-SortedJson ($DesiredText | ConvertFrom-Json))) {
+        $DesiredText = $ExistingText
+    }
+
+    if ($null -ne $ExistingText) {
         if ($ExistingText -ne $DesiredText) {
             $BackupDir = Join-Path $AgentDir "backups"
             New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null

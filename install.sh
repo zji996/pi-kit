@@ -42,10 +42,34 @@ done
 
 # Ensure ~/.local/bin is in PATH for portable tool resolution
 mkdir -p "${HOME:?HOME is required}/.local/bin"
+LOCAL_BIN_ON_PATH=1
 case ":${PATH}:" in
   *":${HOME}/.local/bin:"*) ;;
-  *) export PATH="${HOME}/.local/bin:${PATH}" ;;
+  *) LOCAL_BIN_ON_PATH=0; export PATH="${HOME}/.local/bin:${PATH}" ;;
 esac
+
+# Persist ~/.local/bin in existing shell rc files that do not mention it yet.
+persist_local_bin_path() {
+  for rc_file in "${HOME}/.bashrc" "${HOME}/.profile" "${HOME}/.zshrc"; do
+    if [ -f "$rc_file" ] && ! grep -q '\.local/bin' "$rc_file" 2>/dev/null; then
+      printf '\nexport PATH="$HOME/.local/bin:$PATH"\n' >> "$rc_file"
+      info "added ~/.local/bin to PATH in $rc_file"
+    fi
+  done
+}
+
+# Link a tool into ~/.local/bin unless it already lives there. Only symlinks
+# are replaced, so a real executable placed there by the user is never clobbered.
+link_into_local_bin() {
+  tool_path=$1
+  link_path="${HOME}/.local/bin/$2"
+  [ -n "$tool_path" ] && [ "$tool_path" != "$link_path" ] || return 0
+  if [ -L "$link_path" ] || [ ! -e "$link_path" ]; then
+    ln -sf "$tool_path" "$link_path" 2>/dev/null || true
+  else
+    info "leaving existing $link_path untouched; $2 resolves to $tool_path"
+  fi
+}
 
 # Smart domestic mirror selection (fallback to npmmirror for Mainland China users)
 NPM_REGISTRY=${NPM_REGISTRY:-''}
@@ -133,12 +157,7 @@ ensure_node_environment() {
     ln -sf "$node_target_dir/bin/npm" "${HOME}/.local/bin/npm"
     ln -sf "$node_target_dir/bin/npx" "${HOME}/.local/bin/npx"
 
-    # Persist PATH in shell configuration if not already configured
-    for rc_file in "${HOME}/.bashrc" "${HOME}/.profile" "${HOME}/.zshrc"; do
-      if [ -f "$rc_file" ] && ! grep -q '\.local/bin' "$rc_file" 2>/dev/null; then
-        printf '\nexport PATH="$HOME/.local/bin:$PATH"\n' >> "$rc_file"
-      fi
-    done
+    persist_local_bin_path
 
     info "installed portable Node.js $(node -v) to $node_target_dir"
   fi
@@ -157,11 +176,35 @@ version_at_least() {
   ' "$1" "$2"
 }
 
-pi_bin=''
+# Global npm installs need a writable prefix. System Node.js (for example
+# /usr from a distro package) is root-owned, so fall back to ~/.local instead
+# of failing with EACCES or requiring sudo.
+npm_prefix=$(npm prefix --global)
+npm_prefix_probe="$npm_prefix/lib/node_modules"
+[ -e "$npm_prefix_probe" ] || npm_prefix_probe="$npm_prefix/lib"
+[ -e "$npm_prefix_probe" ] || npm_prefix_probe="$npm_prefix"
+if [ ! -w "$npm_prefix_probe" ]; then
+  info "npm global prefix $npm_prefix is not writable; installing global tools under ~/.local"
+  npm_prefix="${HOME}/.local"
+  export npm_config_prefix="$npm_prefix"
+fi
+npm_bin="$npm_prefix/bin"
+
+# Prefer the executable from the npm prefix that this run installs into. A
+# PATH lookup can hit a stale ~/.local/bin link, for example one left pointing
+# at a previous nvm Node.js version, which would never be upgraded.
+resolve_tool() {
+  if [ -x "$npm_bin/$1" ]; then
+    printf '%s\n' "$npm_bin/$1"
+  else
+    command -v "$1" 2>/dev/null || true
+  fi
+}
+
+pi_bin=$(resolve_tool pi)
 installed_version='0.0.0'
-if command -v pi >/dev/null 2>&1; then
-  pi_bin=$(command -v pi)
-  installed_version=$($pi_bin --version 2>/dev/null || printf '0.0.0')
+if [ -n "$pi_bin" ]; then
+  installed_version=$("$pi_bin" --version 2>/dev/null || printf '0.0.0')
 fi
 
 latest_version=$(npm view "$PI_NPM_NAME" version --registry "$NPM_REGISTRY" 2>/dev/null || true)
@@ -178,17 +221,13 @@ else
   info "Pi $installed_version is current"
 fi
 
-pi_bin=$(command -v pi 2>/dev/null || true)
-if [ -z "$pi_bin" ]; then
-  npm_prefix=$(npm prefix --global)
-  candidate="$npm_prefix/bin/pi"
-  [ -x "$candidate" ] || fail 'Pi was installed, but its executable is not on PATH.'
-  pi_bin=$candidate
-fi
+pi_bin=$(resolve_tool pi)
+[ -n "$pi_bin" ] || fail "Pi was installed, but no executable was found in $npm_bin or on PATH."
 
 # Ensure pi is always accessible directly from ~/.local/bin without self-referential symlink
-if [ -n "$pi_bin" ] && [ "$pi_bin" != "${HOME}/.local/bin/pi" ]; then
-  ln -sf "$pi_bin" "${HOME}/.local/bin/pi" 2>/dev/null || true
+link_into_local_bin "$pi_bin" pi
+if [ "$LOCAL_BIN_ON_PATH" -eq 0 ]; then
+  persist_local_bin_path
 fi
 
 agent_dir=${PI_CODING_AGENT_DIR:-"${HOME:?HOME is required}/.pi/agent"}
@@ -246,8 +285,9 @@ done
 if [ "$MODE" = 'sync' ]; then
   if [ "${PI_KIT_SKIP_PLAYWRIGHT_INSTALL:-0}" != '1' ]; then
     playwright_version=''
-    if command -v playwright >/dev/null 2>&1; then
-      playwright_version=$(playwright --version 2>/dev/null | awk '{print $2}')
+    playwright_bin=$(resolve_tool playwright)
+    if [ -n "$playwright_bin" ]; then
+      playwright_version=$("$playwright_bin" --version 2>/dev/null | awk '{print $2}')
     fi
     playwright_latest=$(npm view playwright version --registry "$NPM_REGISTRY" 2>/dev/null || true)
     if [ -z "$playwright_version" ] || { [ -n "$playwright_latest" ] && [ "$playwright_version" != "$playwright_latest" ]; }; then
@@ -256,10 +296,7 @@ if [ "$MODE" = 'sync' ]; then
     else
       info "Playwright CLI $playwright_version is current"
     fi
-    playwright_bin=$(command -v playwright 2>/dev/null || true)
-    if [ -n "$playwright_bin" ] && [ "$playwright_bin" != "${HOME}/.local/bin/playwright" ]; then
-      ln -sf "$playwright_bin" "${HOME}/.local/bin/playwright" 2>/dev/null || true
-    fi
+    link_into_local_bin "$(resolve_tool playwright)" playwright
   fi
 
   skill_dir="$agent_dir/skills/playwright-cli"
@@ -284,20 +321,23 @@ Use this skill when a task needs a real browser, dynamic SPA interaction, screen
 SKILL
   mv -f "$skill_tmp" "$skill_dir/SKILL.md"
 
+  # pi-kit <= 1.4.2 wrote this config for the retired pi-hashline-edit-pro
+  # package. Remove it only while it still holds exactly what pi-kit wrote.
   xdg_config=${XDG_CONFIG_HOME:-"${HOME:?HOME is required}/.config"}
   hashline_dir="$xdg_config/pi-hashline-edit-pro"
-  mkdir -p "$hashline_dir"
-  hashline_tmp="$hashline_dir/.config.json.pi-kit.$$"
-  cat >"$hashline_tmp" <<'JSON'
-{
-  "autoRead": true,
-  "anchorGrepEnabled": false
-}
-JSON
-  mv -f "$hashline_tmp" "$hashline_dir/config.json"
+  if [ -f "$hashline_dir/config.json" ] && node -e '
+    const config = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
+    const keys = Object.keys(config).sort().join(",");
+    if (keys !== "anchorGrepEnabled,autoRead" || config.autoRead !== true || config.anchorGrepEnabled !== false) process.exit(1);
+  ' "$hashline_dir/config.json" 2>/dev/null; then
+    rm -f "$hashline_dir/config.json"
+    rmdir "$hashline_dir" 2>/dev/null || true
+    info 'removed legacy pi-hashline-edit-pro config written by an older pi-kit'
+  fi
 
+  canonical_tmp="$agent_dir/.settings.canonical.pi-kit.$$"
   desired_tmp="$agent_dir/.settings.json.pi-kit.$$"
-  cat >"$desired_tmp" <<'JSON'
+  cat >"$canonical_tmp" <<'JSON'
 {
   "defaultThinkingLevel": "high",
   "compaction": {
@@ -324,6 +364,45 @@ JSON
   ]
 }
 JSON
+
+  # Machine-local choices survive sync: the selected default model is what
+  # headless callers (for example `pi -p` delegation) run without --model.
+  node - "$canonical_tmp" "$settings_file" "$desired_tmp" <<'NODE'
+const { existsSync, readFileSync, writeFileSync } = require("node:fs");
+const [canonicalFile, settingsFile, desiredFile] = process.argv.slice(2);
+const PRESERVED_KEYS = ["defaultProvider", "defaultModel", "enabledModels", "theme", "lastChangelogVersion"];
+
+// Key order is irrelevant to Pi, which may rewrite settings.json itself.
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]));
+  }
+  return value;
+}
+
+const desired = JSON.parse(readFileSync(canonicalFile, "utf8"));
+let existingText = null;
+let existing = {};
+if (existsSync(settingsFile)) {
+  existingText = readFileSync(settingsFile, "utf8");
+  try {
+    existing = JSON.parse(existingText);
+  } catch {
+    existing = {};
+    console.error("pi-kit: existing settings.json is not valid JSON; it will be backed up and replaced");
+  }
+}
+if (existing && typeof existing === "object" && !Array.isArray(existing)) {
+  for (const key of PRESERVED_KEYS) {
+    if (Object.hasOwn(existing, key)) desired[key] = existing[key];
+  }
+}
+const unchanged =
+  existingText !== null && JSON.stringify(canonicalize(existing)) === JSON.stringify(canonicalize(desired));
+writeFileSync(desiredFile, unchanged ? existingText : `${JSON.stringify(desired, null, 2)}\n`);
+NODE
+  rm -f "$canonical_tmp"
 
   if [ -f "$settings_file" ] && ! cmp -s "$settings_file" "$desired_tmp"; then
     backup_dir="$agent_dir/backups"

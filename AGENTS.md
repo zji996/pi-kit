@@ -10,6 +10,7 @@
 - Never add Pi credentials, provider keys, model configuration, sessions, or a copy of `~/.pi`.
 - The default mode is declarative sync. It may replace `settings.json`, remove packages outside `packages.list`, and replace the managed Playwright skill.
 - Before replacing a non-canonical `settings.json`, save a local backup under the Pi agent directory.
+- Sync preserves the machine-local keys `defaultProvider`, `defaultModel`, `enabledModels`, `theme`, and `lastChangelogVersion`; keep that list identical in both installers and `scripts/check.mjs`. Key order and formatting alone are not drift.
 - Never read, copy, remove, or overwrite `auth.json`, `models.json`, `models-store.json`, `sessions/`, or project-local Pi data.
 - Use Pi's package commands to install and uninstall packages; do not remove package directories directly.
 - Keep `--additive` as the explicitly non-destructive compatibility mode.
