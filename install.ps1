@@ -29,12 +29,12 @@ if ($Sync -and $Additive) {
     throw "-Sync and -Additive cannot be used together."
 }
 
-# Smart mirror detection for Mainland China users
+# Smart mirror detection
 $NpmRegistry = if ($env:NPM_REGISTRY) { $env:NPM_REGISTRY } else { "https://registry.npmjs.org" }
 $NodeDistMirror = if ($env:NODE_DIST_MIRROR) { $env:NODE_DIST_MIRROR } else { "https://nodejs.org/dist" }
 
 if ($Cn -or $env:PI_KIT_MIRROR -eq "cn") {
-    Write-Info "China mirror mode enabled (-Cn); using npmmirror for high-speed download"
+    Write-Info "Mirror mode enabled (-Cn); using npmmirror for high-speed download"
     $NpmRegistry = "https://registry.npmmirror.com"
     $NodeDistMirror = "https://npmmirror.com/mirrors/node"
     $env:PLAYWRIGHT_DOWNLOAD_HOST = "https://npmmirror.com/mirrors/playwright/"
@@ -51,7 +51,7 @@ if ($Cn -or $env:PI_KIT_MIRROR -eq "cn") {
             $respOrg = $reqOrg.GetResponse()
             $respOrg.Close()
         } catch {
-            Write-Info "mainland China network detected; using npmmirror for high-speed download"
+            Write-Info "Using npmmirror for high-speed download (npmjs.org unreachable)"
             $NpmRegistry = "https://registry.npmmirror.com"
             $NodeDistMirror = "https://npmmirror.com/mirrors/node"
             $env:PLAYWRIGHT_DOWNLOAD_HOST = "https://npmmirror.com/mirrors/playwright/"

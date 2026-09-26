@@ -9,7 +9,7 @@ The managed Pi packages are:
 
 ## One-Click Install or Sync
 
-The script is completely self-contained. On fresh machines without Node.js, it automatically installs a portable Node.js 22 LTS runtime without requiring `sudo`/root permissions. In Mainland China, it automatically detects the network and uses high-speed mirrors (npmmirror) for Node.js, npm, and Playwright.
+The script is completely self-contained. On fresh machines without Node.js, it automatically installs a portable Node.js 22 LTS runtime without requiring `sudo`/root permissions. When needed, it automatically detects network reachability and uses high-speed mirrors (npmmirror) for Node.js, npm, and Playwright.
 
 ### Linux / macOS (Forgejo self-hosted entry)
 
@@ -17,7 +17,7 @@ The script is completely self-contained. On fresh machines without Node.js, it a
 curl -fsSL 'https://git.aiatechco.com:31443/zji996/pi-kit/raw/branch/main/install.sh' | sh -s -- --sync
 ```
 
-*(Optional: add `--cn` to force domestic mirror mode: `... | sh -s -- --sync --cn`)*
+*(Optional: add `--cn` to force mirror mode: `... | sh -s -- --sync --cn`)*
 
 ### GitHub fallback
 
@@ -31,7 +31,7 @@ curl -fsSL 'https://raw.githubusercontent.com/zji996/pi-kit/main/install.sh' | s
 irm 'https://git.aiatechco.com:31443/zji996/pi-kit/raw/branch/main/install.ps1' | iex
 ```
 
-*(Optional: force domestic mirror mode: `& ([scriptblock]::Create((irm 'https://git.aiatechco.com:31443/zji996/pi-kit/raw/branch/main/install.ps1'))) -Sync -Cn`)*
+*(Optional: force mirror mode: `& ([scriptblock]::Create((irm 'https://git.aiatechco.com:31443/zji996/pi-kit/raw/branch/main/install.ps1'))) -Sync -Cn`)*
 
 ### From a local clone
 

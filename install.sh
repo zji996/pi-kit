@@ -26,7 +26,7 @@ usage() {
   printf '%s\n' 'Usage: install.sh [--sync|--additive] [--cn]'
   printf '%s\n' '  --sync      replace settings and remove packages outside packages.list (default)'
   printf '%s\n' '  --additive  only add or update packages; preserve all existing settings'
-  printf '%s\n' '  --cn        force using npmmirror for high-speed download in Mainland China'
+  printf '%s\n' '  --cn        force using npmmirror for high-speed download'
 }
 
 while [ "$#" -gt 0 ]; do
@@ -71,18 +71,18 @@ link_into_local_bin() {
   fi
 }
 
-# Smart domestic mirror selection (fallback to npmmirror for Mainland China users)
+# Smart mirror selection (fallback to npmmirror when npmjs is unreachable)
 NPM_REGISTRY=${NPM_REGISTRY:-''}
 NODE_DIST_MIRROR=${NODE_DIST_MIRROR:-''}
 if [ "${PI_KIT_MIRROR:-}" = 'cn' ] || [ "$FORCE_CN" = '1' ]; then
-  info "China mirror mode enabled; using npmmirror for high-speed download"
+  info "Mirror mode enabled; using npmmirror for high-speed download"
   NPM_REGISTRY='https://registry.npmmirror.com'
   NODE_DIST_MIRROR=${NODE_DIST_MIRROR:-'https://npmmirror.com/mirrors/node'}
   export PLAYWRIGHT_DOWNLOAD_HOST=${PLAYWRIGHT_DOWNLOAD_HOST:-'https://npmmirror.com/mirrors/playwright/'}
 elif [ -z "$NPM_REGISTRY" ]; then
   if curl -m 1.5 -fsSL "https://registry.npmmirror.com" >/dev/null 2>&1; then
     if ! curl -m 1.2 -fsSL "https://registry.npmjs.org" >/dev/null 2>&1; then
-      info "mainland China network detected; using npmmirror for high-speed download"
+      info "Using npmmirror for high-speed download (npmjs.org unreachable)"
       NPM_REGISTRY='https://registry.npmmirror.com'
       NODE_DIST_MIRROR=${NODE_DIST_MIRROR:-'https://npmmirror.com/mirrors/node'}
       export PLAYWRIGHT_DOWNLOAD_HOST=${PLAYWRIGHT_DOWNLOAD_HOST:-'https://npmmirror.com/mirrors/playwright/'}
