@@ -48,7 +48,7 @@ irm 'https://git.aiatechco.com:31443/zji996/pi-kit/raw/branch/main/install.ps1' 
 ./install.sh --channel pi     # back to the Node Pi
 ```
 
-The rpi channel installs the pinned rpi release (its archive digest is checked) under `~/.local/lib/rpi/<tag>`, points both `pi` links (the npm bin link and `~/.local/bin/pi`) at it, and keeps the Node Pi reachable as `pi-node`. rpi's own agent directory `~/.rpi/agent` links to Pi's `auth.json`, `models.json` and `skills/`, so both share credentials, models and skills; its `settings.json` is canonical plus Pi's `defaultProvider`, `defaultModel` and `enabledModels`. The channel is recorded in `~/.config/pi-kit/channel`, and `--sync` re-applies it after npm upgrades Pi. rpi has `semantic-edit` built in and no `pi-web-access`.
+The rpi channel installs the pinned rpi release (its archive digest is checked) under `~/.local/lib/rpi/<tag>`, points both `pi` links (the npm bin link and `~/.local/bin/pi`) at it, and keeps the Node Pi reachable as `pi-node`. rpi's own agent directory `~/.rpi/agent` links to Pi's `auth.json`, `models.json` and `skills/`, so both share credentials, models and skills; its `settings.json` is canonical plus Pi's `defaultProvider`, `defaultModel` and `enabledModels`, and sets `sessionDir` to `~/.rpi/agent/sessions` so sessions stay out of projects (rpi's default is `<project>/.rpi/sessions`). The channel is recorded in `~/.config/pi-kit/channel`, and `--sync` re-applies it after npm upgrades Pi. rpi's `edit` matches as strictly as Pi's, reports every failing edit with the closest text in the file and what differs, and adds `replaceAll`; there is no `pi-web-access`.
 
 ## Declarative result
 

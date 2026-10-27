@@ -66,6 +66,9 @@ const settings = JSON.parse(require("node:fs").readFileSync(process.argv[2], "ut
 if (settings.defaultModel !== "local-model" || settings.defaultProvider !== "local-provider") {
   throw new Error(`rpi settings lost the model choice: ${JSON.stringify(settings)}`);
 }
+if (settings.sessionDir !== `${process.env.HOME}/.rpi/agent/sessions`) {
+  throw new Error(`rpi sessions would land in the project: ${JSON.stringify(settings)}`);
+}
 if (settings.defaultThinkingLevel !== "high" || settings.theme !== undefined) {
   throw new Error(`rpi settings are not canonical: ${JSON.stringify(settings)}`);
 }

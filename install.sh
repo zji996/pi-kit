@@ -307,9 +307,9 @@ setup_rpi_agent() {
   done
   rpi_settings="$rpi_agent/settings.json"
   rpi_tmp_settings="$rpi_agent/.settings.json.pi-kit.$$"
-  node - "$settings_file" "$rpi_settings" "$rpi_tmp_settings" <<'NODE'
+  node - "$settings_file" "$rpi_settings" "$rpi_tmp_settings" "$rpi_agent/sessions" <<'NODE'
 const { existsSync, readFileSync, writeFileSync } = require("node:fs");
-const [piFile, rpiFile, outFile] = process.argv.slice(2);
+const [piFile, rpiFile, outFile, sessionDir] = process.argv.slice(2);
 const RPI_PRESERVED_KEYS = ["defaultProvider", "defaultModel", "enabledModels"];
 const read = (file) => {
   try {
@@ -329,6 +329,8 @@ const desired = {
   compaction: { enabled: true, reserveTokens: 32768, keepRecentTokens: 40000 },
   branchSummary: { reserveTokens: 32768 },
   defaultTools: ["read", "bash", "edit", "write"],
+  // rpi defaults to <project>/.rpi/sessions; keep transcripts out of repositories, as Pi does.
+  sessionDir,
 };
 const pi = read(piFile);
 for (const key of RPI_PRESERVED_KEYS) if (Object.hasOwn(pi, key)) desired[key] = pi[key];
