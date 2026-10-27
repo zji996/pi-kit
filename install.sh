@@ -10,6 +10,11 @@ npm:pi-semantic-edit
 npm:pi-web-access
 '
 MODE='sync'
+CHANNEL=''
+# rpi (Rust Pi) build for the rpi channel: pinned tag and archive digest.
+RPI_TAG='v0.9.4-aia.1'
+RPI_SHA256='212470d3ae1b3a1db433d61de5e3cf6f5a9d9c947f09641a950f4a897eefb3aa'
+RPI_REPO='https://github.com/zji996/pi-rust'
 
 info() {
   printf '%s\n' "pi-kit: $*"
@@ -21,24 +26,37 @@ fail() {
 }
 
 FORCE_CN=0
+MODE_GIVEN=0
 
 usage() {
-  printf '%s\n' 'Usage: install.sh [--sync|--additive] [--cn]'
+  printf '%s\n' 'Usage: install.sh [--sync|--additive] [--cn] [--channel pi|rpi]'
   printf '%s\n' '  --sync      replace settings and remove packages outside packages.list (default)'
   printf '%s\n' '  --additive  only add or update packages; preserve all existing settings'
   printf '%s\n' '  --cn        force using npmmirror for high-speed download'
+  printf '%s\n' '  --channel pi|rpi'
+  printf '%s\n' '              which program `pi` runs: Pi (Node) or rpi (Rust Pi, Linux x86_64).'
+  printf '%s\n' '              Alone it only switches; with --sync it syncs, then switches.'
 }
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --sync) MODE='sync' ;;
-    --additive) MODE='additive' ;;
+    --sync) MODE='sync'; MODE_GIVEN=1 ;;
+    --additive) MODE='additive'; MODE_GIVEN=1 ;;
     --cn) FORCE_CN=1 ;;
+    --channel)
+      [ "$#" -ge 2 ] || fail '--channel needs pi or rpi'
+      case "$2" in pi|rpi) CHANNEL=$2 ;; *) fail "unknown channel: $2 (pi or rpi)" ;; esac
+      shift
+      ;;
     --help|-h) usage; exit 0 ;;
     *) fail "unknown option: $1" ;;
   esac
   shift
 done
+# `--channel` without a mode flag only switches the channel.
+if [ -n "$CHANNEL" ] && [ "$MODE_GIVEN" -eq 0 ]; then
+  MODE='channel'
+fi
 
 # Ensure ~/.local/bin is in PATH for portable tool resolution
 mkdir -p "${HOME:?HOME is required}/.local/bin"
@@ -201,7 +219,164 @@ resolve_tool() {
   fi
 }
 
-pi_bin=$(resolve_tool pi)
+# The Node Pi's own entry point from its package. In the rpi channel the `pi`
+# links point at rpi, so package management always goes through this path.
+node_pi() {
+  pkg="$npm_prefix/lib/node_modules/$PI_NPM_NAME"
+  [ -f "$pkg/package.json" ] || return 0
+  entry=$(node -e '
+    const bin = require(process.argv[1]).bin;
+    const entry = typeof bin === "string" ? bin : bin && bin.pi;
+    if (entry) process.stdout.write(entry);
+  ' "$pkg/package.json" 2>/dev/null) || return 0
+  [ -n "$entry" ] && [ -f "$pkg/$entry" ] && printf '%s\n' "$pkg/$entry"
+  return 0
+}
+
+resolve_pi() {
+  found=$(node_pi)
+  [ -n "$found" ] || found=$(resolve_tool pi)
+  printf '%s\n' "$found"
+}
+
+channel_file="${XDG_CONFIG_HOME:-${HOME}/.config}/pi-kit/channel"
+
+# Point a `pi` name at $1. Only links (or absent names) are replaced; a real
+# executable someone placed there is left alone.
+point_link() {
+  [ -n "$1" ] || return 0
+  if [ -L "$2" ] || [ ! -e "$2" ]; then
+    ln -sfn "$1" "$2"
+  else
+    info "leaving existing $2 untouched"
+  fi
+}
+
+sha256_of() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
+# Install the pinned rpi build once per tag and link ~/.local/bin/rpi.
+install_rpi() {
+  case "$(uname -s)-$(uname -m)" in
+    Linux-x86_64|Linux-amd64) ;;
+    *) fail 'the rpi channel has builds for Linux x86_64 only; stay on --channel pi' ;;
+  esac
+  rpi_home="${HOME}/.local/lib/rpi/$RPI_TAG"
+  rpi_bin="$rpi_home/rpi"
+  if [ ! -x "$rpi_bin" ]; then
+    archive="rpi-$RPI_TAG-x86_64-unknown-linux-gnu.tar.gz"
+    rpi_tmp=$(mktemp -d "${TMPDIR:-/tmp}/pi-kit-rpi.XXXXXX")
+    if [ -n "${PI_KIT_RPI_ARCHIVE:-}" ]; then
+      cp "$PI_KIT_RPI_ARCHIVE" "$rpi_tmp/$archive"
+    else
+      info "downloading rpi $RPI_TAG"
+      curl -fsSL "$RPI_REPO/releases/download/$RPI_TAG/$archive" -o "$rpi_tmp/$archive" \
+        || { rm -rf "$rpi_tmp"; fail "failed to download rpi $RPI_TAG"; }
+    fi
+    # PI_KIT_RPI_SHA256 exists for the install test's local archive.
+    expected=${PI_KIT_RPI_SHA256:-$RPI_SHA256}
+    actual=$(sha256_of "$rpi_tmp/$archive")
+    if [ "$actual" != "$expected" ]; then
+      rm -rf "$rpi_tmp"
+      fail "rpi archive digest $actual does not match the pinned $expected"
+    fi
+    tar -xzf "$rpi_tmp/$archive" -C "$rpi_tmp"
+    [ -f "$rpi_tmp/rpi" ] || { rm -rf "$rpi_tmp"; fail "the rpi archive has no rpi executable"; }
+    mkdir -p "$rpi_home"
+    cp "$rpi_tmp/rpi" "$rpi_bin.tmp" && chmod 755 "$rpi_bin.tmp" && mv -f "$rpi_bin.tmp" "$rpi_bin"
+    rm -rf "$rpi_tmp"
+    info "installed rpi $RPI_TAG to $rpi_home"
+  fi
+  ln -sfn "$rpi_bin" "${HOME}/.local/bin/rpi"
+}
+
+# rpi keeps its own agent directory. Credentials, models and skills are shared
+# with Pi through links (Pi's files are never read or copied); its settings are
+# the canonical ones plus the model choice from Pi's settings.
+setup_rpi_agent() {
+  rpi_agent=${RPI_CODING_AGENT_DIR:-"${HOME}/.rpi/agent"}
+  mkdir -p "$rpi_agent"
+  for name in auth.json models.json skills; do
+    [ -e "$agent_dir/$name" ] || continue
+    point_link "$agent_dir/$name" "$rpi_agent/$name"
+  done
+  rpi_settings="$rpi_agent/settings.json"
+  rpi_tmp_settings="$rpi_agent/.settings.json.pi-kit.$$"
+  node - "$settings_file" "$rpi_settings" "$rpi_tmp_settings" <<'NODE'
+const { existsSync, readFileSync, writeFileSync } = require("node:fs");
+const [piFile, rpiFile, outFile] = process.argv.slice(2);
+const RPI_PRESERVED_KEYS = ["defaultProvider", "defaultModel", "enabledModels"];
+const read = (file) => {
+  try {
+    return existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : {};
+  } catch {
+    return {};
+  }
+};
+const canonicalize = (value) =>
+  Array.isArray(value)
+    ? value.map(canonicalize)
+    : value && typeof value === "object"
+      ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]))
+      : value;
+const desired = {
+  defaultThinkingLevel: "high",
+  compaction: { enabled: true, reserveTokens: 32768, keepRecentTokens: 40000 },
+  branchSummary: { reserveTokens: 32768 },
+  defaultTools: ["read", "bash", "edit", "write"],
+};
+const pi = read(piFile);
+for (const key of RPI_PRESERVED_KEYS) if (Object.hasOwn(pi, key)) desired[key] = pi[key];
+const current = read(rpiFile);
+// rpi may add its own bookkeeping keys; keep them, override the managed ones.
+const merged = { ...current, ...desired };
+const unchanged = existsSync(rpiFile) && JSON.stringify(canonicalize(current)) === JSON.stringify(canonicalize(merged));
+writeFileSync(outFile, unchanged ? readFileSync(rpiFile, "utf8") : `${JSON.stringify(merged, null, 2)}\n`);
+NODE
+  mv -f "$rpi_tmp_settings" "$rpi_settings"
+  chmod 600 "$rpi_settings" 2>/dev/null || true
+}
+
+# Make `pi` run the chosen channel: both the npm bin link (first on PATH under
+# nvm) and ~/.local/bin/pi. `pi-node` keeps the Node Pi reachable on rpi.
+apply_channel() {
+  channel=$1
+  node_pi_bin=$(node_pi)
+  case "$channel" in
+    rpi)
+      install_rpi
+      setup_rpi_agent
+      point_link "$rpi_bin" "$npm_bin/pi"
+      point_link "$rpi_bin" "${HOME}/.local/bin/pi"
+      [ -z "$node_pi_bin" ] || point_link "$node_pi_bin" "${HOME}/.local/bin/pi-node"
+      ;;
+    pi)
+      [ -n "$node_pi_bin" ] || fail 'Pi is not installed; run install.sh --sync first'
+      point_link "$node_pi_bin" "$npm_bin/pi"
+      point_link "$node_pi_bin" "${HOME}/.local/bin/pi"
+      [ ! -L "${HOME}/.local/bin/pi-node" ] || rm -f "${HOME}/.local/bin/pi-node"
+      ;;
+  esac
+  mkdir -p "$(dirname "$channel_file")"
+  printf '%s\n' "$channel" > "$channel_file"
+  info "channel $channel: pi runs $(readlink "${HOME}/.local/bin/pi" 2>/dev/null || printf 'pi')"
+}
+
+agent_dir=${PI_CODING_AGENT_DIR:-"${HOME:?HOME is required}/.pi/agent"}
+settings_file="$agent_dir/settings.json"
+
+if [ "$MODE" = 'channel' ]; then
+  apply_channel "$CHANNEL"
+  exit 0
+fi
+[ -n "$CHANNEL" ] || CHANNEL=$(cat "$channel_file" 2>/dev/null || printf 'pi')
+
+pi_bin=$(resolve_pi)
 installed_version='0.0.0'
 if [ -n "$pi_bin" ]; then
   installed_version=$("$pi_bin" --version 2>/dev/null || printf '0.0.0')
@@ -221,7 +396,7 @@ else
   info "Pi $installed_version is current"
 fi
 
-pi_bin=$(resolve_tool pi)
+pi_bin=$(resolve_pi)
 [ -n "$pi_bin" ] || fail "Pi was installed, but no executable was found in $npm_bin or on PATH."
 
 # Ensure pi is always accessible directly from ~/.local/bin without self-referential symlink
@@ -230,8 +405,6 @@ if [ "$LOCAL_BIN_ON_PATH" -eq 0 ]; then
   persist_local_bin_path
 fi
 
-agent_dir=${PI_CODING_AGENT_DIR:-"${HOME:?HOME is required}/.pi/agent"}
-settings_file="$agent_dir/settings.json"
 mkdir -p "$agent_dir" "$agent_dir/npm"
 
 # Configure internal npm registry for pi plugin installs
@@ -416,6 +589,9 @@ NODE
   chmod 600 "$settings_file" 2>/dev/null || true
   info 'declarative settings synchronized; auth, models, and sessions were not accessed'
 fi
+
+# npm reinstalls point `pi` back at Node Pi; re-apply the recorded channel.
+apply_channel "$CHANNEL"
 
 info 'installed packages:'
 "$pi_bin" list

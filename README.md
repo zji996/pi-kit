@@ -39,6 +39,17 @@ irm 'https://git.aiatechco.com:31443/zji996/pi-kit/raw/branch/main/install.ps1' 
 ./sync.sh
 ```
 
+## Channels: Pi or rpi
+
+`pi` can run either the Node Pi (channel `pi`, the default) or [rpi](https://github.com/zji996/pi-rust), a Rust build of Pi that takes the same arguments (channel `rpi`, Linux x86_64 only):
+
+```sh
+./install.sh --channel rpi    # switch only; add --sync to sync first
+./install.sh --channel pi     # back to the Node Pi
+```
+
+The rpi channel installs the pinned rpi release (its archive digest is checked) under `~/.local/lib/rpi/<tag>`, points both `pi` links (the npm bin link and `~/.local/bin/pi`) at it, and keeps the Node Pi reachable as `pi-node`. rpi's own agent directory `~/.rpi/agent` links to Pi's `auth.json`, `models.json` and `skills/`, so both share credentials, models and skills; its `settings.json` is canonical plus Pi's `defaultProvider`, `defaultModel` and `enabledModels`. The channel is recorded in `~/.config/pi-kit/channel`, and `--sync` re-applies it after npm upgrades Pi. rpi has `semantic-edit` built in and no `pi-web-access`.
+
 ## Declarative result
 
 The canonical settings are [`settings.unix.json`](settings.unix.json) and [`settings.windows.json`](settings.windows.json). Sync applies:

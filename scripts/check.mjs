@@ -59,6 +59,9 @@ for (const [name, text] of [["install.sh", shellInstaller], ["install.ps1", powe
   }
 }
 
+if (!/^RPI_SHA256='[0-9a-f]{64}'$/m.test(shellInstaller)) throw new Error("install.sh must pin the rpi archive SHA-256");
+if (!/^RPI_TAG='v[0-9][^']*'$/m.test(shellInstaller)) throw new Error("install.sh must pin the rpi release tag");
+
 const skill = read("skills/playwright-cli/SKILL.md");
 if (!shellInstaller.includes(skill)) throw new Error("install.sh embedded Playwright skill differs from the managed skill");
 if (!powershellInstaller.includes(skill.trimEnd())) {

@@ -15,12 +15,14 @@
 - Use Pi's package commands to install and uninstall packages; do not remove package directories directly.
 - Keep `--additive` as the explicitly non-destructive compatibility mode.
 - Support macOS and Linux in `install.sh`, and Windows in `install.ps1`.
+- The rpi channel exists in `install.sh` only (rpi ships Linux x86_64 builds); pin its release by tag and archive SHA-256, and share Pi's credentials, models and skills with rpi through links, never copies.
 
 ## Validation
 
 ```sh
 ./scripts/check.sh
 ./scripts/test-install.sh
+./scripts/test-channel.sh
 ```
 
 The install test uses `PI_CODING_AGENT_DIR` and `XDG_CONFIG_HOME` with a temporary directory. It must not touch the caller's normal Pi configuration.
