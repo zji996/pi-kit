@@ -12,8 +12,8 @@ npm:pi-web-access
 MODE='sync'
 CHANNEL=''
 # rpi (Rust Pi) build for the rpi channel: pinned tag and archive digest.
-RPI_TAG='v0.11.0-aia.1'
-RPI_SHA256='aef092d22a9cdcf02c1e1e2c25fe117c5734f9ab0deffca46bf8944caf6c7c74'
+RPI_TAG='v0.11.0-aia.2'
+RPI_SHA256='5f112e271f1d3b80d24bf31b956958179763cff5425445958dd32b634c94c024'
 RPI_REPO='https://github.com/zji996/pi-rust'
 
 info() {
